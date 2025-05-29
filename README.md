@@ -17,7 +17,6 @@ Aspectos desarrollados
 - Aplicación de consola en Python (`appi.py`) con funcionalidades por rol: autenticación, matrícula, gestión de cursos, materiales, tareas, foros y reportes.
 
 ## 1.2. Que aspectos NO cumplió o desarrolló de la actividad propuesta por el profesor (requerimientos funcionales y no funcionales)
-Despliegue en la nube: No hay evidencia de despliegue en AWS u otro servicio en la nube.
 Gestión completa de archivos: La subida de materiales y tareas es simulada, no maneja archivos reales.
 
 
