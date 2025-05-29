@@ -1,0 +1,1321 @@
+import pymysql
+from pymysql import Error
+from datetime import datetime
+
+DB_CONFIG = {
+    'host': 'localhost',
+    'database': 'eafit',
+    'user': 'root',
+    'password': 'Fazelan20'
+}
+
+usuario_actual = None
+
+def conectar_db():
+    """Establece conexión con la base de datos"""
+    try:
+        conexion = pymysql.connect(**DB_CONFIG)
+        return conexion
+    except Error as e:
+        print(f"Error al conectar con MySQL: {e}")
+        return None
+
+def login():
+    """Sistema de autenticación"""
+    global usuario_actual
+    print("\n" + "="*50)
+    print("           SISTEMA ACADÉMICO EAFIT")
+    print("="*50)
+    print("=== LOGIN ===")
+    username = input("Username: ")
+    password = input("Password: ")
+    
+    conexion = conectar_db()
+    if not conexion:
+        print("Error de conexión a la base de datos")
+        return False
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        query = """SELECT id_usuario, nombre_usuario, tipo_usuario, email 
+                FROM USUARIO 
+                WHERE nombre_usuario = %s AND contrasena = %s"""
+        cursor.execute(query, (username, password))
+        usuario = cursor.fetchone()
+        
+        if usuario:
+            usuario_actual = usuario
+            print(f"\nBienvenido, {usuario['nombre_usuario']} ({usuario['tipo_usuario'].upper()})")
+            return True
+        else:
+            print(" Usuario o contraseña incorrectos")
+            return False
+            
+    except Error as e:
+        print(f"Error en login: {e}")
+        return False
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def logout():
+    """Cerrar sesión"""
+    global usuario_actual
+    if usuario_actual:
+        print(f"👋 Hasta luego, {usuario_actual['nombre_usuario']}")
+        usuario_actual = None
+    return False
+
+# ================== FUNCIONES PARA ADMINISTRADOR ==================
+
+def matricular_usuario_curso():
+    """Matricular un usuario a un curso"""
+    print("\n=== MATRICULAR USUARIO A CURSO ===")
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        print("\n--- Estudiantes disponibles ---")
+        query = "SELECT id_usuario, nombre_usuario, email FROM USUARIO WHERE tipo_usuario = 'estudiante'"
+        cursor.execute(query)
+        estudiantes = cursor.fetchall()
+        
+        for est in estudiantes:
+            print(f"ID: {est['id_usuario']} - {est['nombre_usuario']} ({est['email']})")
+        
+        print("\n--- Cursos disponibles ---")
+        query = "SELECT id_curso, nombre_curso, categoria FROM CURSO"
+        cursor.execute(query)
+        cursos = cursor.fetchall()
+        
+        for curso in cursos:
+            print(f"ID: {curso['id_curso']} - {curso['nombre_curso']} ({curso['categoria']})")
+        
+        try:
+            id_estudiante = int(input("\nIngrese ID del estudiante: "))
+            id_curso = int(input("Ingrese ID del curso: "))
+            
+            query = "SELECT * FROM INTERESADO WHERE id_usuario = %s AND id_curso = %s"
+            cursor.execute(query, (id_estudiante, id_curso))
+            if cursor.fetchone():
+                print(" El estudiante ya está matriculado en este curso")
+                return
+            
+            query = "INSERT INTO INTERESADO (id_usuario, id_curso) VALUES (%s, %s)"
+            cursor.execute(query, (id_estudiante, id_curso))
+            conexion.commit()
+            print("Usuario matriculado exitosamente")
+            
+        except ValueError:
+            print(" Ingrese IDs válidos")
+        except Error as e:
+            print(f" Error al matricular: {e}")
+            
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def asignar_profesor_curso():
+    """Asignar un profesor a un curso"""
+    print("\n=== ASIGNAR PROFESOR A CURSO ===")
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        print("\n--- Profesores disponibles ---")
+        query = "SELECT id_usuario, nombre_usuario, email FROM USUARIO WHERE tipo_usuario = 'profesor'"
+        cursor.execute(query)
+        profesores = cursor.fetchall()
+        
+        for prof in profesores:
+            print(f"ID: {prof['id_usuario']} - {prof['nombre_usuario']} ({prof['email']})")
+        
+        print("\n--- Cursos disponibles ---")
+        query = "SELECT id_curso, nombre_curso, categoria FROM CURSO"
+        cursor.execute(query)
+        cursos = cursor.fetchall()
+        
+        for curso in cursos:
+            print(f"ID: {curso['id_curso']} - {curso['nombre_curso']} ({curso['categoria']})")
+        
+        try:
+            id_profesor = int(input("\nIngrese ID del profesor: "))
+            id_curso = int(input("Ingrese ID del curso: "))
+            
+            query = "SELECT * FROM DICTA WHERE id_usuario = %s AND id_curso = %s"
+            cursor.execute(query, (id_profesor, id_curso))
+            if cursor.fetchone():
+                print(" El profesor ya está asignado a este curso")
+                return
+            
+            query = "INSERT INTO DICTA (id_usuario, id_curso) VALUES (%s, %s)"
+            cursor.execute(query, (id_profesor, id_curso))
+            conexion.commit()
+            print("Profesor asignado exitosamente")
+            
+        except ValueError:
+            print(" Ingrese IDs válidos")
+        except Error as e:
+            print(f" Error al asignar: {e}")
+            
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def reportes_menu():
+    """Menú de reportes para administradores"""
+    while True:
+        print("\n=== REPORTES ===")
+        print("1. Listar todos los cursos (con filtros)")
+        print("2. Ver información detallada de un curso")
+        print("3. Listar usuarios (con filtros)")
+        print("0. Volver al menú principal")
+        
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == "1":
+            reporte_cursos()
+        elif opcion == "2":
+            reporte_curso_detallado()
+        elif opcion == "3":
+            reporte_usuarios()
+        elif opcion == "0":
+            break
+        else:
+            print(" Opción inválida")
+
+def reporte_cursos():
+    """Reporte de cursos con filtros"""
+    print("\n=== REPORTE DE CURSOS ===")
+    print("1. Todos los cursos")
+    print("2. Por categoría")
+    print("3. Por año")
+    print("4. Por profesor")
+    
+    filtro = input("Seleccione filtro: ")
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        if filtro == "1":
+            query = """SELECT c.id_curso, c.nombre_curso, c.categoria, c.año, c.semestre,
+                            u.nombre_usuario as profesor
+                    FROM CURSO c
+                    LEFT JOIN DICTA d ON c.id_curso = d.id_curso
+                    LEFT JOIN USUARIO u ON d.id_usuario = u.id_usuario"""
+            cursor.execute(query)
+            
+        elif filtro == "2":
+            categoria = input("Ingrese categoría: ")
+            query = """SELECT c.id_curso, c.nombre_curso, c.categoria, c.año, c.semestre,
+                            u.nombre_usuario as profesor
+                    FROM CURSO c
+                    LEFT JOIN DICTA d ON c.id_curso = d.id_curso
+                    LEFT JOIN USUARIO u ON d.id_usuario = u.id_usuario
+                    WHERE c.categoria LIKE %s"""
+            cursor.execute(query, (f"%{categoria}%",))
+            
+        elif filtro == "3":
+            año = input("Ingrese año: ")
+            query = """SELECT c.id_curso, c.nombre_curso, c.categoria, c.año, c.semestre,
+                            u.nombre_usuario as profesor
+                    FROM CURSO c
+                    LEFT JOIN DICTA d ON c.id_curso = d.id_curso
+                    LEFT JOIN USUARIO u ON d.id_usuario = u.id_usuario
+                    WHERE c.año = %s"""
+            cursor.execute(query, (año,))
+            
+        elif filtro == "4":
+            profesor = input("Ingrese nombre del profesor: ")
+            query = """SELECT c.id_curso, c.nombre_curso, c.categoria, c.año, c.semestre,
+                            u.nombre_usuario as profesor
+                    FROM CURSO c
+                    LEFT JOIN DICTA d ON c.id_curso = d.id_curso
+                    LEFT JOIN USUARIO u ON d.id_usuario = u.id_usuario
+                    WHERE u.nombre_usuario LIKE %s"""
+            cursor.execute(query, (f"%{profesor}%",))
+        
+        cursos = cursor.fetchall()
+        
+        if cursos:
+            print(f"\n{'ID':<5} {'Curso':<25} {'Categoría':<15} {'Año':<6} {'Sem':<4} {'Profesor':<20}")
+            print("-" * 85)
+            for curso in cursos:
+                profesor = curso['profesor'] if curso['profesor'] else 'Sin asignar'
+                print(f"{curso['id_curso']:<5} {curso['nombre_curso']:<25} {curso['categoria']:<15} "
+                    f"{curso['año']:<6} {curso['semestre']:<4} {profesor:<20}")
+        else:
+            print("No se encontraron cursos con ese filtro")
+            
+    except Error as e:
+        print(f"Error en reporte: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def reporte_curso_detallado():
+    """Información detallada de un curso"""
+    try:
+        id_curso = int(input("Ingrese ID del curso: "))
+    except ValueError:
+        print(" ID inválido")
+        return
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT c.*, u.nombre_usuario as profesor, u.email as email_profesor
+                FROM CURSO c
+                LEFT JOIN DICTA d ON c.id_curso = d.id_curso
+                LEFT JOIN USUARIO u ON d.id_usuario = u.id_usuario
+                WHERE c.id_curso = %s"""
+        cursor.execute(query, (id_curso,))
+        curso = cursor.fetchone()
+        
+        if not curso:
+            print(" Curso no encontrado")
+            return
+        
+        print(f"\n=== INFORMACIÓN DEL CURSO ===")
+        print(f"ID: {curso['id_curso']}")
+        print(f"Nombre: {curso['nombre_curso']}")
+        print(f"Categoría: {curso['categoria']}")
+        print(f"Precio: ${curso['precio']}")
+        print(f"Fecha inicio: {curso['fecha_inicio']}")
+        print(f"Fecha fin: {curso['fecha_fin']}")
+        print(f"Semestre: {curso['semestre']}")
+        print(f"Año: {curso['año']}")
+        print(f"Profesor: {curso['profesor'] if curso['profesor'] else 'Sin asignar'}")
+        if curso['email_profesor']:
+            print(f"Email profesor: {curso['email_profesor']}")
+        
+        query = """SELECT u.nombre_usuario, u.email
+                FROM USUARIO u
+                INNER JOIN INTERESADO i ON u.id_usuario = i.id_usuario
+                WHERE i.id_curso = %s"""
+        cursor.execute(query, (id_curso,))
+        estudiantes = cursor.fetchall()
+        
+        print(f"\n--- ESTUDIANTES MATRICULADOS ({len(estudiantes)}) ---")
+        for est in estudiantes:
+            print(f"• {est['nombre_usuario']} ({est['email']})")
+            
+    except Error as e:
+        print(f"Error en reporte: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def reporte_usuarios():
+    """Reporte de usuarios con filtros"""
+    print("\n=== REPORTE DE USUARIOS ===")
+    print("1. Todos los usuarios")
+    print("2. Por tipo de usuario")
+    print("3. Por ID específico")
+    
+    filtro = input("Seleccione filtro: ")
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        if filtro == "1":
+            query = "SELECT id_usuario, nombre_usuario, tipo_usuario, email FROM USUARIO ORDER BY tipo_usuario, nombre_usuario"
+            cursor.execute(query)
+            
+        elif filtro == "2":
+            tipo = input("Ingrese tipo (estudiante/profesor/administrador): ")
+            query = "SELECT id_usuario, nombre_usuario, tipo_usuario, email FROM USUARIO WHERE tipo_usuario = %s ORDER BY nombre_usuario"
+            cursor.execute(query, (tipo,))
+            
+        elif filtro == "3":
+            try:
+                id_user = int(input("Ingrese ID del usuario: "))
+                query = "SELECT id_usuario, nombre_usuario, tipo_usuario, email FROM USUARIO WHERE id_usuario = %s"
+                cursor.execute(query, (id_user,))
+            except ValueError:
+                print(" ID inválido")
+                return
+        
+        usuarios = cursor.fetchall()
+        
+        if usuarios:
+            print(f"\n{'ID':<5} {'Nombre':<25} {'Tipo':<15} {'Email':<30}")
+            print("-" * 75)
+            for user in usuarios:
+                print(f"{user['id_usuario']:<5} {user['nombre_usuario']:<25} {user['tipo_usuario']:<15} {user['email']:<30}")
+        else:
+            print("No se encontraron usuarios con ese filtro")
+            
+    except Error as e:
+        print(f"Error en reporte: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+# ================== FUNCIONES GENERALES (PROFESOR/ALUMNO) ==================
+
+def listar_mis_cursos():
+    """Lista los cursos del usuario actual"""
+    conexion = conectar_db()
+    if not conexion:
+        return []
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        if usuario_actual["tipo_usuario"] == "profesor":
+            query = """SELECT c.id_curso, c.nombre_curso, c.categoria, c.semestre, c.año
+                    FROM CURSO c
+                    INNER JOIN DICTA d ON c.id_curso = d.id_curso
+                    WHERE d.id_usuario = %s"""
+            cursor.execute(query, (usuario_actual["id_usuario"],))
+            
+        elif usuario_actual["tipo_usuario"] == "estudiante":
+            query = """SELECT c.id_curso, c.nombre_curso, c.categoria, c.semestre, c.año
+                    FROM CURSO c
+                    INNER JOIN INTERESADO i ON c.id_curso = i.id_curso  
+                    WHERE i.id_usuario = %s"""
+            cursor.execute(query, (usuario_actual["id_usuario"],))
+            
+        elif usuario_actual["tipo_usuario"] == "administrador":
+            query = "SELECT id_curso, nombre_curso, categoria, semestre, año FROM CURSO"
+            cursor.execute(query)
+        
+        cursos = cursor.fetchall()
+        
+        if cursos:
+            print(f"\n=== MIS CURSOS ({len(cursos)}) ===")
+            for i, curso in enumerate(cursos, 1):
+                print(f"{i}. {curso['nombre_curso']} ({curso['categoria']}) - {curso['semestre']}/{curso['año']}")
+        else:
+            print("\n No tienes cursos asignados")
+        
+        return cursos
+        
+    except Error as e:
+        print(f"Error al listar cursos: {e}")
+        return []
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def menu_curso(curso):
+    """Menú dentro de un curso específico"""
+    while True:
+        print(f"\n{'='*60}")
+        print(f"           CURSO: {curso['nombre_curso']}")
+        print(f"{'='*60}")
+        print("1. Listar Alumnos")
+        print("2. Listar Materiales")
+        print("3. Ver Foros")
+        print("4. Ver Tareas")
+        
+        if usuario_actual["tipo_usuario"] in ["profesor", "administrador"]:
+            print("5. Subir Material")
+            print("6. Crear Foro")
+        
+        print("0. Salir del curso")
+        
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == "1":
+            listar_alumnos_curso(curso['id_curso'])
+        elif opcion == "2":
+            listar_materiales_curso(curso['id_curso'])
+        elif opcion == "3":
+            gestionar_foros(curso['id_curso'])
+        elif opcion == "4":
+            listar_tareas_curso(curso['id_curso'])
+        elif opcion == "5" and usuario_actual["tipo_usuario"] in ["profesor", "administrador"]:
+            subir_material(curso['id_curso'])
+        elif opcion == "6" and usuario_actual["tipo_usuario"] in ["profesor", "administrador"]:
+            crear_foro(curso['id_curso'])
+        elif opcion == "0":
+            break
+        else:
+            print(" Opción inválida")
+
+def listar_alumnos_curso(id_curso):
+    """Lista los alumnos de un curso"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        query = """SELECT u.nombre_usuario, u.email, e.especializacion
+                FROM USUARIO u
+                INNER JOIN INTERESADO i ON u.id_usuario = i.id_usuario
+                LEFT JOIN ESTUDIANTE e ON u.id_usuario = e.id_usuario
+                WHERE i.id_curso = %s AND u.tipo_usuario = 'estudiante'"""
+        cursor.execute(query, (id_curso,))
+        alumnos = cursor.fetchall()
+        
+        if alumnos:
+            print(f"\n=== ALUMNOS DEL CURSO ({len(alumnos)}) ===")
+            for alumno in alumnos:
+                especializ = alumno['especializacion'] if alumno['especializacion'] else 'No especificada'
+                print(f"• {alumno['nombre_usuario']} ({alumno['email']}) - {especializ}")
+        else:
+            print("\n No hay alumnos matriculados en este curso")
+            
+    except Error as e:
+        print(f"Error al listar alumnos: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def listar_materiales_curso(id_curso):
+    """Lista los materiales de un curso"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        query = """SELECT m.titulo, m.descripcion
+                FROM MATERIAL m
+                INNER JOIN CREA c ON m.id_material = c.id_material
+                WHERE c.id_curso = %s"""
+        cursor.execute(query, (id_curso,))
+        materiales = cursor.fetchall()
+        
+        if materiales:
+            print(f"\n=== MATERIALES DEL CURSO ({len(materiales)}) ===")
+            for material in materiales:
+                print(f"📄 {material['titulo']}")
+                print(f"   {material['descripcion']}")
+                print()
+        else:
+            print("\n No hay materiales disponibles en este curso")
+            
+    except Error as e:
+        print(f"Error al listar materiales: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def gestionar_foros(id_curso):
+    """Gestión de foros - ver y enviar mensajes"""
+    while True:
+        print(f"\n=== FOROS ===")
+        
+        conexion = conectar_db()
+        if not conexion:
+            return
+        
+        try:
+            cursor = conexion.cursor(pymysql.cursors.DictCursor)
+            query = "SELECT id_foro, nombre_foro, descripcion_foro FROM FORO"
+            cursor.execute(query)
+            foros = cursor.fetchall()
+            
+            if foros:
+                for i, foro in enumerate(foros, 1):
+                    print(f"{i}. {foro['nombre_foro']}")
+                    print(f"   {foro['descripcion_foro']}")
+                
+                print(f"\n{len(foros)+1}. Enviar mensaje a un foro")
+                print("0. Volver")
+                
+                opcion = input("Seleccione una opción: ")
+                
+                if opcion == "0":
+                    break
+                elif opcion == str(len(foros)+1):
+                    enviar_mensaje_foro(foros)
+                else:
+                    try:
+                        idx = int(opcion) - 1
+                        if 0 <= idx < len(foros):
+                            ver_mensajes_foro(foros[idx])
+                        else:
+                            print(" Opción inválida")
+                    except ValueError:
+                        print(" Opción inválida")
+            else:
+                print(" No hay foros disponibles")
+                break
+                
+        except Error as e:
+            print(f"Error en foros: {e}")
+        finally:
+            if conexion:
+                cursor.close()
+                conexion.close()
+
+def ver_mensajes_foro(foro):
+    """Ver mensajes de un foro específico"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        query = """SELECT mf.contenido, u.nombre_usuario, mf.id_mensaje_respuesta
+                FROM MENSAJE_FORO mf
+                INNER JOIN USUARIO u ON mf.id_usuario_emisor = u.id_usuario
+                WHERE mf.id_foro = %s
+                ORDER BY mf.id_mensaje"""
+        cursor.execute(query, (foro['id_foro'],))
+        mensajes = cursor.fetchall()
+        
+        print(f"\n=== FORO: {foro['nombre_foro']} ===")
+        if mensajes:
+            for mensaje in mensajes:
+                respuesta = " (Respuesta)" if mensaje['id_mensaje_respuesta'] else ""
+                print(f"👤 {mensaje['nombre_usuario']}{respuesta}: {mensaje['contenido']}")
+        else:
+            print("No hay mensajes en este foro")
+            
+    except Error as e:
+        print(f"Error al ver mensajes: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def enviar_mensaje_foro(foros):
+    """Enviar mensaje a un foro"""
+    if not foros:
+        return
+    
+    print("\n=== ENVIAR MENSAJE ===")
+    for i, foro in enumerate(foros, 1):
+        print(f"{i}. {foro['nombre_foro']}")
+    
+    try:
+        seleccion = int(input("Seleccione foro: ")) - 1
+        if not (0 <= seleccion < len(foros)):
+            print(" Selección inválida")
+            return
+        
+        mensaje = input("Escriba su mensaje: ")
+        if not mensaje.strip():
+            print(" El mensaje no puede estar vacío")
+            return
+        
+        conexion = conectar_db()
+        if not conexion:
+            return
+        
+        cursor = conexion.cursor()
+        query = """INSERT INTO MENSAJE_FORO (id_foro, id_usuario_emisor, contenido)
+                VALUES (%s, %s, %s)"""
+        cursor.execute(query, (foros[seleccion]['id_foro'], usuario_actual['id_usuario'], mensaje))
+        conexion.commit()
+        print("Mensaje enviado exitosamente")
+        
+    except (ValueError, Error) as e:
+        print(f" Error al enviar mensaje: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def listar_tareas_curso(id_curso):
+    """Lista las tareas de un curso"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        query = """SELECT nombre_tarea, descripcion_tarea, fecha_creacion, 
+                        fecha_entrega, puntaje
+                FROM TAREA"""
+        cursor.execute(query)
+        tareas = cursor.fetchall()
+        
+        if tareas:
+            print(f"\n=== TAREAS DEL CURSO ({len(tareas)}) ===")
+            for tarea in tareas:
+                print(f"📝 {tarea['nombre_tarea']}")
+                print(f"   Descripción: {tarea['descripcion_tarea']}")
+                print(f"   Creada: {tarea['fecha_creacion']}")
+                print(f"   Entrega: {tarea['fecha_entrega']}")
+                print(f"   Puntaje: {tarea['puntaje']}")
+                print("-" * 50)
+        else:
+            print("\n No hay tareas disponibles en este curso")
+            
+    except Error as e:
+        print(f"Error al listar tareas: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def subir_material(id_curso):
+    """Subir material a un curso (solo profesores)"""
+    print("\n=== SUBIR MATERIAL ===")
+    titulo = input("Título del material: ")
+    descripcion = input("Descripción del material: ")
+    
+    if not titulo.strip() or not descripcion.strip():
+        print(" Título y descripción son obligatorios")
+        return
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor()
+        
+        query = "INSERT INTO MATERIAL (titulo, descripcion) VALUES (%s, %s)"
+        cursor.execute(query, (titulo, descripcion))
+        material_id = cursor.lastrowid
+        
+        query = "INSERT INTO CREA (id_curso, id_material) VALUES (%s, %s)"
+        cursor.execute(query, (id_curso, material_id))
+        
+        conexion.commit()
+        print("Material subido exitosamente")
+        
+    except Error as e:
+        print(f" Error al subir material: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def crear_foro(id_curso):
+    """Crear un nuevo foro (solo profesores)"""
+    print("\n=== CREAR FORO ===")
+    nombre = input("Nombre del foro: ")
+    descripcion = input("Descripción del foro: ")
+    
+    if not nombre.strip():
+        print(" El nombre del foro es obligatorio")
+        return
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor()
+        query = """INSERT INTO FORO (nombre_foro, descripcion_foro, fecha_creacion)
+                VALUES (%s, %s, CURDATE())"""
+        cursor.execute(query, (nombre, descripcion))
+        conexion.commit()
+        print("Foro creado exitosamente")
+        
+    except Error as e:
+        print(f" Error al crear foro: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+
+def menu_administrador():
+    """Menú principal para administradores"""
+    while True:
+        print(f"\n{'='*60}")
+        print(f"           MENÚ ADMINISTRADOR")
+        print(f"{'='*60}")
+        print("1. Matricular Usuario a Curso")
+        print("2. Asignar Profesor a Curso")
+        print("3. Ver mis cursos")
+        print("4. Reportes")
+        print("0. Cerrar sesión")
+        
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == "1":
+            matricular_usuario_curso()
+        elif opcion == "2":
+            asignar_profesor_curso()
+        elif opcion == "3":
+            menu_cursos()
+        elif opcion == "4":
+            reportes_menu()
+        elif opcion == "0":
+            return logout()
+        else:
+            print(" Opción inválida")
+
+def menu_profesor():
+    """Menú principal para profesores"""
+    while True:
+        print(f"\n{'='*60}")
+        print(f"           MENÚ PROFESOR")
+        print(f"{'='*60}")
+        print("1. Ver mis cursos")
+        print("2. Gestionar tareas")
+        print("3. Ver foros")
+        print("4. Ver mensajes")
+        print("0. Cerrar sesión")
+        
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == "1":
+            menu_cursos()
+        elif opcion == "2":
+            gestionar_tareas()
+        elif opcion == "3":
+            ver_foros_profesor()
+        elif opcion == "4":
+            ver_mensajes_profesor()
+        elif opcion == "0":
+            return logout()
+        else:
+            print(" Opción inválida")
+
+def menu_estudiante():
+    """Menú principal para estudiantes"""
+    while True:
+        print(f"\n{'='*60}")
+        print(f"           MENÚ ESTUDIANTE")
+        print(f"{'='*60}")
+        print("1. Ver mis cursos")
+        print("2. Ver tareas")
+        print("3. Entregar tarea")
+        print("4. Ver foros")
+        print("5. Ver mensajes")
+        print("0. Cerrar sesión")
+        
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == "1":
+            menu_cursos()
+        elif opcion == "2":
+            ver_tareas_estudiante()
+        elif opcion == "3":
+            entregar_tarea()
+        elif opcion == "4":
+            ver_foros_estudiante()
+        elif opcion == "5":
+            ver_mensajes_estudiante()
+        elif opcion == "0":
+            return logout()
+        else:
+            print(" Opción inválida")
+
+def menu_cursos():
+    """Menú para seleccionar y entrar a un curso"""
+    cursos = listar_mis_cursos()
+    if not cursos:
+        return
+    
+    try:
+        seleccion = int(input("Seleccione un curso (0 para volver): "))
+        if seleccion == 0:
+            return
+        if 1 <= seleccion <= len(cursos):
+            menu_curso(cursos[seleccion-1])
+        else:
+            print(" Selección inválida")
+    except ValueError:
+        print(" Ingrese un número válido")
+
+def gestionar_tareas():
+    """Gestionar tareas (para profesores)"""
+    cursos = listar_mis_cursos()
+    if not cursos:
+        return
+    
+    try:
+        seleccion = int(input("Seleccione un curso para gestionar tareas (0 para volver): "))
+        if seleccion == 0:
+            return
+        if 1 <= seleccion <= len(cursos):
+            curso = cursos[seleccion-1]
+            while True:
+                print(f"\n=== GESTIÓN DE TAREAS - {curso['nombre_curso']} ===")
+                print("1. Crear nueva tarea")
+                print("2. Ver tareas existentes")
+                print("3. Calificar tareas")
+                print("0. Volver")
+                
+                opcion = input("Seleccione una opción: ")
+                
+                if opcion == "1":
+                    crear_tarea(curso['id_curso'])
+                elif opcion == "2":
+                    listar_tareas_curso(curso['id_curso'])
+                elif opcion == "3":
+                    calificar_tareas(curso['id_curso'])
+                elif opcion == "0":
+                    break
+                else:
+                    print(" Opción inválida")
+        else:
+            print(" Selección inválida")
+    except ValueError:
+        print(" Ingrese un número válido")
+
+def crear_tarea(id_curso):
+    """Crear una nueva tarea para un curso"""
+    print("\n=== CREAR NUEVA TAREA ===")
+    nombre = input("Nombre de la tarea: ")
+    descripcion = input("Descripción: ")
+    fecha_entrega = input("Fecha de entrega (YYYY-MM-DD): ")
+    puntaje = input("Puntaje máximo: ")
+    
+    try:
+        conexion = conectar_db()
+        if not conexion:
+            return
+        
+        cursor = conexion.cursor()
+        query = """INSERT INTO TAREA (nombre_tarea, descripcion_tarea, fecha_creacion, fecha_entrega, puntaje)
+                VALUES (%s, %s, CURDATE(), %s, %s)"""
+        cursor.execute(query, (nombre, descripcion, fecha_entrega, puntaje))
+        conexion.commit()
+        print("Tarea creada exitosamente")
+        
+    except Error as e:
+        print(f" Error al crear tarea: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def calificar_tareas(id_curso):
+    """Calificar tareas entregadas por estudiantes"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT t.id_tarea, t.nombre_tarea, COUNT(e.id_usuario) as entregas
+                FROM TAREA t
+                LEFT JOIN ENTREGA e ON t.id_tarea = e.id_tarea
+                GROUP BY t.id_tarea"""
+        cursor.execute(query)
+        tareas = cursor.fetchall()
+        
+        if not tareas:
+            print(" No hay tareas en este curso")
+            return
+        
+        print("\n=== TAREAS PARA CALIFICAR ===")
+        for tarea in tareas:
+            print(f"ID: {tarea['id_tarea']} - {tarea['nombre_tarea']} ({tarea['entregas']} entregas)")
+        
+        try:
+            id_tarea = int(input("\nIngrese ID de la tarea a calificar (0 para volver): "))
+            if id_tarea == 0:
+                return
+            
+            query = """SELECT e.id_usuario, u.nombre_usuario, e.archivo_estudiante, 
+                            e.fecha_entrega, e.puntaje
+                    FROM ENTREGA e
+                    JOIN USUARIO u ON e.id_usuario = u.id_usuario
+                    WHERE e.id_tarea = %s"""
+            cursor.execute(query, (id_tarea,))
+            entregas = cursor.fetchall()
+            
+            if not entregas:
+                print(" No hay entregas para esta tarea")
+                return
+            
+            print("\n=== ENTREGAS ===")
+            for entrega in entregas:
+                print(f"\nID Estudiante: {entrega['id_usuario']}")
+                print(f"Nombre: {entrega['nombre_usuario']}")
+                print(f"Archivo: {entrega['archivo_estudiante']}")
+                print(f"Fecha entrega: {entrega['fecha_entrega']}")
+                print(f"Puntaje actual: {entrega['puntaje'] if entrega['puntaje'] else 'Sin calificar'}")
+                
+                nuevo_puntaje = input("Ingrese nuevo puntaje (deje vacío para mantener): ")
+                if nuevo_puntaje:
+                    try:
+                        puntaje = float(nuevo_puntaje)
+                        query = "UPDATE ENTREGA SET puntaje = %s WHERE id_usuario = %s AND id_tarea = %s"
+                        cursor.execute(query, (puntaje, entrega['id_usuario'], id_tarea))
+                        conexion.commit()
+                        print("Puntaje actualizado")
+                    except ValueError:
+                        print(" Puntaje debe ser un número")
+        
+        except ValueError:
+            print(" ID debe ser un número")
+            
+    except Error as e:
+        print(f"Error al calificar tareas: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def ver_tareas_estudiante():
+    """Ver tareas asignadas al estudiante"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT c.id_curso, c.nombre_curso 
+                FROM CURSO c
+                JOIN INTERESADO i ON c.id_curso = i.id_curso
+                WHERE i.id_usuario = %s"""
+        cursor.execute(query, (usuario_actual['id_usuario'],))
+        cursos = cursor.fetchall()
+        
+        if not cursos:
+            print(" No estás matriculado en ningún curso")
+            return
+        
+        print("\n=== MIS CURSOS ===")
+        for i, curso in enumerate(cursos, 1):
+            print(f"{i}. {curso['nombre_curso']}")
+        
+        try:
+            seleccion = int(input("\nSeleccione un curso (0 para volver): ")) - 1
+            if seleccion == -1:
+                return
+            if 0 <= seleccion < len(cursos):
+                id_curso = cursos[seleccion]['id_curso']
+                
+                query = """SELECT t.id_tarea, t.nombre_tarea, t.descripcion_tarea, 
+                                t.fecha_creacion, t.fecha_entrega, t.puntaje,
+                                e.puntaje as mi_puntaje, e.archivo_estudiante
+                        FROM TAREA t
+                        LEFT JOIN ENTREGA e ON t.id_tarea = e.id_tarea AND e.id_usuario = %s
+                        WHERE t.id_tarea IN (SELECT id_tarea FROM TAREA)"""
+                cursor.execute(query, (usuario_actual['id_usuario'],))
+                tareas = cursor.fetchall()
+                
+                if tareas:
+                    print("\n=== TAREAS ===")
+                    for tarea in tareas:
+                        print(f"\n📝 {tarea['nombre_tarea']}")
+                        print(f"   Descripción: {tarea['descripcion_tarea']}")
+                        print(f"   Fecha entrega: {tarea['fecha_entrega']}")
+                        print(f"   Puntaje máximo: {tarea['puntaje']}")
+                        if tarea['mi_puntaje'] is not None:
+                            print(f"   Mi puntaje: {tarea['mi_puntaje']}")
+                            print(f"   Archivo entregado: {tarea['archivo_estudiante']}")
+                        else:
+                            print("    No entregada")
+                else:
+                    print(" No hay tareas en este curso")
+            else:
+                print(" Selección inválida")
+        except ValueError:
+            print(" Ingrese un número válido")
+            
+    except Error as e:
+        print(f"Error al ver tareas: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def entregar_tarea():
+    """Entregar una tarea como estudiante"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT t.id_tarea, t.nombre_tarea, c.nombre_curso, t.fecha_entrega
+                FROM TAREA t
+                JOIN CURSO c ON t.id_tarea IN (SELECT id_tarea FROM TAREA)
+                JOIN INTERESADO i ON c.id_curso = i.id_curso
+                WHERE i.id_usuario = %s
+                AND t.id_tarea NOT IN (
+                    SELECT id_tarea FROM ENTREGA WHERE id_usuario = %s
+                )"""
+        cursor.execute(query, (usuario_actual['id_usuario'], usuario_actual['id_usuario']))
+        tareas = cursor.fetchall()
+        
+        if not tareas:
+            print(" No tienes tareas pendientes por entregar")
+            return
+        
+        print("\n=== TAREAS PENDIENTES ===")
+        for i, tarea in enumerate(tareas, 1):
+            print(f"{i}. {tarea['nombre_tarea']} - {tarea['nombre_curso']} (Entrega: {tarea['fecha_entrega']})")
+        
+        try:
+            seleccion = int(input("\nSeleccione tarea a entregar (0 para volver): ")) - 1
+            if seleccion == -1:
+                return
+            if 0 <= seleccion < len(tareas):
+                archivo = input("Nombre del archivo a entregar: ")
+                if not archivo.strip():
+                    print(" Debe ingresar un nombre de archivo")
+                    return
+                
+                query = """INSERT INTO ENTREGA (id_usuario, id_tarea, archivo_estudiante, fecha_entrega)
+                        VALUES (%s, %s, %s, CURDATE())"""
+                cursor.execute(query, (usuario_actual['id_usuario'], tareas[seleccion]['id_tarea'], archivo))
+                conexion.commit()
+                print("Tarea entregada exitosamente")
+            else:
+                print(" Selección inválida")
+        except ValueError:
+            print(" Ingrese un número válido")
+            
+    except Error as e:
+        print(f"Error al entregar tarea: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def ver_foros_profesor():
+    """Ver foros como profesor"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT c.id_curso, c.nombre_curso 
+                FROM CURSO c
+                JOIN DICTA d ON c.id_curso = d.id_curso
+                WHERE d.id_usuario = %s"""
+        cursor.execute(query, (usuario_actual['id_usuario'],))
+        cursos = cursor.fetchall()
+        
+        if not cursos:
+            print(" No dictas ningún curso")
+            return
+        
+        print("\n=== MIS CURSOS ===")
+        for i, curso in enumerate(cursos, 1):
+            print(f"{i}. {curso['nombre_curso']}")
+        
+        try:
+            seleccion = int(input("\nSeleccione un curso (0 para volver): ")) - 1
+            if seleccion == -1:
+                return
+            if 0 <= seleccion < len(cursos):
+                id_curso = cursos[seleccion]['id_curso']
+                gestionar_foros(id_curso)
+            else:
+                print(" Selección inválida")
+        except ValueError:
+            print(" Ingrese un número válido")
+            
+    except Error as e:
+        print(f"Error al ver foros: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def ver_foros_estudiante():
+    """Ver foros como estudiante"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT c.id_curso, c.nombre_curso 
+                FROM CURSO c
+                JOIN INTERESADO i ON c.id_curso = i.id_curso
+                WHERE i.id_usuario = %s"""
+        cursor.execute(query, (usuario_actual['id_usuario'],))
+        cursos = cursor.fetchall()
+        
+        if not cursos:
+            print(" No estás matriculado en ningún curso")
+            return
+        
+        print("\n=== MIS CURSOS ===")
+        for i, curso in enumerate(cursos, 1):
+            print(f"{i}. {curso['nombre_curso']}")
+        
+        try:
+            seleccion = int(input("\nSeleccione un curso (0 para volver): ")) - 1
+            if seleccion == -1:
+                return
+            if 0 <= seleccion < len(cursos):
+                id_curso = cursos[seleccion]['id_curso']
+                gestionar_foros(id_curso)
+            else:
+                print(" Selección inválida")
+        except ValueError:
+            print(" Ingrese un número válido")
+            
+    except Error as e:
+        print(f"Error al ver foros: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def ver_mensajes_profesor():
+    """Ver mensajes recibidos como profesor"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT u.nombre_usuario, mf.contenido, mf.id_mensaje, f.nombre_foro
+                FROM MENSAJE_FORO mf
+                JOIN USUARIO u ON mf.id_usuario_emisor = u.id_usuario
+                JOIN FORO f ON mf.id_foro = f.id_foro
+                JOIN PARTICIPA p ON f.id_foro = p.id_foro
+                WHERE p.id_usuario = %s
+                AND mf.id_usuario_emisor != %s
+                ORDER BY mf.id_mensaje DESC"""
+        cursor.execute(query, (usuario_actual['id_usuario'], usuario_actual['id_usuario']))
+        mensajes = cursor.fetchall()
+        
+        if mensajes:
+            print("\n=== MENSAJES RECIBIDOS ===")
+            for msg in mensajes:
+                print(f"\nForo: {msg['nombre_foro']}")
+                print(f"De: {msg['nombre_usuario']}")
+                print(f"Mensaje: {msg['contenido']}")
+                
+                respuesta = input("\n¿Desea responder? (s/n): ").lower()
+                if respuesta == 's':
+                    responder_mensaje(msg['id_mensaje'])
+        else:
+            print(" No tienes mensajes nuevos")
+            
+    except Error as e:
+        print(f"Error al ver mensajes: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def ver_mensajes_estudiante():
+    """Ver mensajes recibidos como estudiante"""
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = """SELECT u.nombre_usuario, mf.contenido, mf.id_mensaje, f.nombre_foro
+                FROM MENSAJE_FORO mf
+                JOIN USUARIO u ON mf.id_usuario_emisor = u.id_usuario
+                JOIN FORO f ON mf.id_foro = f.id_foro
+                JOIN PARTICIPA p ON f.id_foro = p.id_foro
+                WHERE p.id_usuario = %s
+                AND mf.id_usuario_emisor != %s
+                ORDER BY mf.id_mensaje DESC"""
+        cursor.execute(query, (usuario_actual['id_usuario'], usuario_actual['id_usuario']))
+        mensajes = cursor.fetchall()
+        
+        if mensajes:
+            print("\n=== MENSAJES RECIBIDOS ===")
+            for msg in mensajes:
+                print(f"\nForo: {msg['nombre_foro']}")
+                print(f"De: {msg['nombre_usuario']}")
+                print(f"Mensaje: {msg['contenido']}")
+                
+                respuesta = input("\n¿Desea responder? (s/n): ").lower()
+                if respuesta == 's':
+                    responder_mensaje(msg['id_mensaje'])
+        else:
+            print(" No tienes mensajes nuevos")
+            
+    except Error as e:
+        print(f"Error al ver mensajes: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def responder_mensaje(id_mensaje_original):
+    """Responder a un mensaje en un foro"""
+    print("\n=== RESPONDER MENSAJE ===")
+    respuesta = input("Escriba su respuesta: ")
+    
+    if not respuesta.strip():
+        print("La respuesta no puede estar vacía")
+        return
+    
+    conexion = conectar_db()
+    if not conexion:
+        return
+    
+    try:
+        cursor = conexion.cursor(pymysql.cursors.DictCursor)
+        
+        query = "SELECT id_foro FROM MENSAJE_FORO WHERE id_mensaje = %s"
+        cursor.execute(query, (id_mensaje_original,))
+        mensaje_original = cursor.fetchone()
+        
+        if not mensaje_original:
+            print(" Mensaje original no encontrado")
+            return
+        
+        query = """INSERT INTO MENSAJE_FORO (id_foro, id_usuario_emisor, contenido, id_mensaje_respuesta)
+                VALUES (%s, %s, %s, %s)"""
+        cursor.execute(query, (mensaje_original['id_foro'], usuario_actual['id_usuario'], respuesta, id_mensaje_original))
+        conexion.commit()
+        print("Respuesta enviada exitosamente")
+        
+    except Error as e:
+        print(f" Error al responder mensaje: {e}")
+    finally:
+        if conexion:
+            cursor.close()
+            conexion.close()
+
+def main():
+    """Función principal del sistema"""
+    while True:
+        if not usuario_actual:
+            if not login():
+                continue
+            
+        if usuario_actual["tipo_usuario"] == "administrador":
+            if menu_administrador():
+                continue
+        elif usuario_actual["tipo_usuario"] == "profesor":
+            if menu_profesor():
+                continue
+        elif usuario_actual["tipo_usuario"] == "estudiante":
+            if menu_estudiante():
+                continue
+        else:
+            print(" Tipo de usuario no reconocido")
+            logout()
+
+if __name__ == "__main__":
+    main()
