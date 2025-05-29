@@ -1,7 +1,7 @@
 # PROYECTO-BD
-# info de la materia: BASE DE DATOS S2561-0701
-# Estudiantes: Mariana Sanchez Araque - msancheza8@eafit.edu.co y Samuel Moncada Mejia  - smoncadam@eafit.edu.co
-# Profesor: EDWIN NELSON MONTOYA MUNERA - emontoya@eafit.brightspace.com
+ info de la materia: BASE DE DATOS S2561-0701
+ Estudiantes: Mariana Sanchez Araque - msancheza8@eafit.edu.co y Samuel Moncada Mejia  - smoncadam@eafit.edu.co
+ Profesor: EDWIN NELSON MONTOYA MUNERA - emontoya@eafit.brightspace.com
 
 # Proyecto Final – Sistema de Gestión de Datos
 # 1. Descripción
