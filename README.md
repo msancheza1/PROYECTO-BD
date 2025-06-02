@@ -14,7 +14,7 @@ Aspectos desarrollados
 - Implementación completa del modelo físico en MySQL (proyecto_ddl.sql).
 - Poblado inicial de datos (script.sql).
 - Consultas SQL requeridas (proyecto_query.sql).
-- Aplicación de consola en Python (`appi.py`) con funcionalidades por rol: autenticación, matrícula, gestión de cursos, materiales, tareas, foros y reportes.
+- Aplicación de consola en Python (app.py) con funcionalidades por rol: autenticación, matrícula, gestión de cursos, materiales, tareas, foros y reportes.
 
 ## 1.2. Que aspectos NO cumplió o desarrolló de la actividad propuesta por el profesor (requerimientos funcionales y no funcionales)
 Gestión completa de archivos: La subida de materiales y tareas es simulada, no maneja archivos reales.
