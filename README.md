@@ -52,7 +52,7 @@ mysql -u root -p < proyecto_ddl.sql  (Crear base de datos)
 mysql -u root -p < script.sql      (Poblar datos iniciales )
 
 Ejecutar la aplicación por consola:
-python app.py  
+python app.py - cmd
 
 ## detalles del desarrollo
 Lenguaje: Python 3.11
@@ -62,7 +62,7 @@ Tipo de interfaz: Interfaz por consola con menús diferenciados por rol (adminis
 Estilo modular: Funciones separadas por rol y funcionalidad (login, matrícula, reportes, materiales, tareas, foros...)
 
 ## detalles técnicos
-La base de datos se llama normalizacion
+La base de datos se llama eafit
 Las credenciales están en el archivo app.py, sección DB_CONFIG:
 DB_CONFIG = {
     'host': 'localhost',
